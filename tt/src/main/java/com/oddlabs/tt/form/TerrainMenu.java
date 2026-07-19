@@ -115,6 +115,8 @@ public final class TerrainMenu extends Group {
     private final boolean multiplayer;
     /** Serverless P2P private match: multiplayer game flow without any matchmaking server. */
     private final boolean p2p;
+    /** Networked lobby game (matchmaking or P2P), as opposed to a purely local skirmish. */
+    private final boolean networked;
     private final @NonNull PulldownMenu<Void> pm_gamespeed;
     private final @NonNull GUIRoot gui_root;
     private final @NonNull NetworkSelector network;
@@ -171,6 +173,7 @@ public final class TerrainMenu extends Group {
         this.main_menu = main_menu;
         this.multiplayer = multiplayer;
         this.p2p = p2p;
+        this.networked = multiplayer || p2p;
         this.owner = owner;
         this.gui_root = gui_root;
 
@@ -178,14 +181,14 @@ public final class TerrainMenu extends Group {
         Label label_headline = new Label(i18n(multiplayer ? "new_game" : p2p ? "p2p" : "skirmish"),
                 Skin.getSkin().getHeadlineFont());
         addChild(label_headline);
-        if (multiplayer || p2p) {
+        if (networked) {
             preset_library.load(Renderer.getLocalInput().getGameDir().resolve(Globals.getPresetsFileName()));
         }
-        mode_and_presets = multiplayer || p2p ? new ModeAndPresetsPanel(gui_root, preset_library,
+        mode_and_presets = networked ? new ModeAndPresetsPanel(gui_root, preset_library,
                 new PresetsHandler()) : null;
         Panel standard = new Panel(i18n("standard_options"));
         Panel advanced = new Panel(i18n("advanced_options"));
-        roster_panel = multiplayer || p2p ? new RosterPanel() : null;
+        roster_panel = networked ? new RosterPanel() : null;
         Group group_map_options = new Group();
 
         // game name
@@ -229,7 +232,7 @@ public final class TerrainMenu extends Group {
         pb_gamespeed.place(label_gamespeed, RIGHT_MID);
         group_gamespeed.compileCanvas();
 
-        if (multiplayer || p2p) {
+        if (networked) {
             group_map_options.addChild(group_gamespeed);
         }
         // size
@@ -358,7 +361,7 @@ public final class TerrainMenu extends Group {
         race_pulldown_buttons = new PulldownButton[MatchmakingServerInterface.MAX_PLAYERS];
         team_pulldown_buttons = new PulldownButton[MatchmakingServerInterface.MAX_PLAYERS];
         ScrollableGroup group_race_team = buildPlayerSlots(player_count);
-        if (multiplayer || p2p) {
+        if (networked) {
             roster_panel.setRoster(group_race_team);
         } else {
             standard.addChild(group_race_team);
@@ -386,7 +389,7 @@ public final class TerrainMenu extends Group {
         addChild(group_buttons);
 
         // map options
-        if (multiplayer || p2p) {
+        if (networked) {
             group_gamespeed.place();
             group_size.place(group_gamespeed, BOTTOM_RIGHT);
         } else {
@@ -419,7 +422,7 @@ public final class TerrainMenu extends Group {
         group_seed.place(group_num_players, BOTTOM_LEFT, Skin.getSkin().getFormData().sectionSpacing());
         advanced.compileCanvas();
 
-        PanelGroup panel_group = multiplayer || p2p ? new PanelGroup(1, mode_and_presets, standard, advanced,
+        PanelGroup panel_group = networked ? new PanelGroup(1, mode_and_presets, standard, advanced,
                 roster_panel) : new PanelGroup(standard, advanced);
         addChild(panel_group);
         var playersChangedListener = new PulldownUpdatePlayersChangedListener(standard);
@@ -442,7 +445,7 @@ public final class TerrainMenu extends Group {
         for (int i = 0; i < player_count; i++) {
             difficulty_pulldown_menus[i].addItemChosenListener(new PulldownUpdateHardListener());
             team_pulldown_menus[i].chooseItem(defaultTeam(i));
-            if (!multiplayer && !p2p && i == 1) {
+            if (!networked && i == 1) {
                 difficulty_pulldown_menus[i].chooseItem(PlayerSlot.AI_EASY);
                 race_pulldown_menus[i].chooseItem((race_pulldown_menus[0].getChosenItemIndex() + 1) % 2);
             } else {
@@ -688,7 +691,7 @@ public final class TerrainMenu extends Group {
                 // MP and skirmish slots can wait for a human joiner; the legacy local game has no joiners so it omits
                 // Open. Adding Open shifts the slot indices (Open 0, Closed 1, AI 2-4). See fillToDifficultyIndex /
                 // difficultyIndexToFill.
-                if (multiplayer || p2p) {
+                if (networked) {
                     difficulty_pulldown_menus[i].addItem(new PulldownItem<>(i18n("open")));
                 }
                 difficulty_pulldown_menus[i].addItem(new PulldownItem<>(i18n("closed")));
@@ -757,7 +760,7 @@ public final class TerrainMenu extends Group {
      * slot-based assignment. Single-player keeps the host on team 1 and the AIs on team 2 (you vs the AIs).
      */
     private int defaultTeam(int i) {
-        if (multiplayer || p2p) {
+        if (networked) {
             return i;
         }
         return i == 0 ? 0 : 1;
@@ -838,13 +841,13 @@ public final class TerrainMenu extends Group {
         }
         if (p2p)
             P2P.get().startHosting(game);
-        InGameInfo ingame_info = multiplayer || p2p ? new MultiplayerInGameInfo(game.getRandomStartPos(),
+        InGameInfo ingame_info = networked ? new MultiplayerInGameInfo(game.getRandomStartPos(),
                 game.isRated()) : new DefaultInGameInfo();
         GameNetwork game_network = Menu.startNewGame(network, gui_root,
                 menu,
-                new WorldParameters(multiplayer || p2p ? game.getGamespeed() : Globals.gamespeed,
+                new WorldParameters(networked ? game.getGamespeed() : Globals.gamespeed,
                         label_mapcode.getContents(), Player.INITIAL_UNIT_COUNT,
-                        multiplayer || p2p ? game.getMaxUnitCount() : Player.DEFAULT_MAX_UNIT_COUNT,
+                        networked ? game.getMaxUnitCount() : Player.DEFAULT_MAX_UNIT_COUNT,
                         pulldown_size.getChosenItemIndex()),
                 ingame_info,
                 new Menu.DefaultWorldInitAction(),
@@ -859,12 +862,12 @@ public final class TerrainMenu extends Group {
                 player_count);
         game_network.getClient().getServerInterface().setPlayerSlot(0, PlayerSlot.HUMAN,
                 race_pulldown_menus[0].getChosenItemIndex(), team_pulldown_menus[0].getChosenItemIndex(),
-                !multiplayer && !p2p, PlayerSlot.AI_NONE);
-        if (multiplayer || p2p) {
+                !networked, PlayerSlot.AI_NONE);
+        if (networked) {
             // Carry the host's roster into the lobby; GameMenu applies it once on open (host only).
             game_network.setInitialRoster(snapshotRoster());
         }
-        if (!multiplayer && !p2p) {
+        if (!networked) {
             for (int i = 1; i < player_count; i++) {
                 if (isChosen(difficulty_pulldown_menus[i]))
                     game_network.getClient().getServerInterface().setPlayerSlot(i, PlayerSlot.AI,
@@ -1172,7 +1175,7 @@ public final class TerrainMenu extends Group {
             }
 
             ScrollableGroup new_group = buildPlayerSlots(player_count);
-            if (multiplayer || p2p) {
+            if (networked) {
                 roster_panel.setRoster(new_group);
             } else {
                 if (current_race_team != null) {
@@ -1191,7 +1194,7 @@ public final class TerrainMenu extends Group {
                     team_pulldown_menus[i].chooseItem(Math.min(prev_team[i], player_count - 1));
                 } else {
                     team_pulldown_menus[i].chooseItem(defaultTeam(i));
-                    if (!multiplayer && !p2p && i == 1) {
+                    if (!networked && i == 1) {
                         difficulty_pulldown_menus[i].chooseItem(PlayerSlot.AI_EASY);
                         race_pulldown_menus[i].chooseItem((race_pulldown_menus[0].getChosenItemIndex() + 1) % 2);
                     } else if (i != 0) {
