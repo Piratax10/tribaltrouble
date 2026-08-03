@@ -30,7 +30,7 @@ public final class CreditsForm extends Form {
         addChild(head_label);
         head_label.place();
 
-        PanelGroup panel_group = new PanelGroup(createAboutPanel(bundle), createCreditsPanel(bundle), createThanksPanel(
+        PanelGroup panel_group = new PanelGroup(createAboutPanel(bundle), createCreditsPanel(bundle), createTribalTroubleResurrectedCreditsPanel(bundle), createThanksPanel(
                 bundle));
         addChild(panel_group);
         panel_group.place(head_label, BOTTOM_LEFT);
@@ -76,6 +76,22 @@ public final class CreditsForm extends Form {
         credits_box.place();
         credits.compileCanvas();
         return credits;
+    }
+
+    private static @NonNull Panel createTribalTroubleResurrectedCreditsPanel(@NonNull ResourceBundle bundle) {
+        Panel ttrCredits = new Panel(i18n("TTR_credits"));
+        TextBox ttr_credits_box = new TextBox(400, 300, Skin.getSkin().getEditFont(), 100000);
+        ttrCredits.addChild(ttr_credits_box);
+        ttr_credits_box.append(i18n("game_design_and_programming") + "\n");
+        ttr_credits_box.append("ryan-linehan\n");
+        ttr_credits_box.append("OmarAMokhtar\n");
+        ttr_credits_box.append("\n");
+        ttr_credits_box.append(i18n("fan translations") + "\n");
+        ttr_credits_box.append("Piratax10 - Português brasileiro\n");
+        ttr_credits_box.append("\n");
+        ttr_credits_box.place();
+        ttrCredits.compileCanvas();
+        return ttrCredits;
     }
 
     private static @NonNull Panel createThanksPanel(@NonNull ResourceBundle bundle) {
